@@ -17,15 +17,11 @@ def update_server(request):
     if request.method != 'POST':
         return HttpResponseForbidden('Method not allowed')
 
-    # Secret configurado no GitHub e no PythonAnywhere
     secret = os.environ.get('GITHUB_WEBHOOK_SECRET')
-
     if not secret:
         return HttpResponseForbidden('Webhook secret not configured')
 
-    # Assinatura enviada pelo GitHub
     signature = request.headers.get('X-Hub-Signature-256', '')
-
     if not signature.startswith('sha256='):
         return HttpResponseForbidden('Invalid signature')
 
@@ -38,29 +34,11 @@ def update_server(request):
     if not hmac.compare_digest(signature, expected_signature):
         return HttpResponseForbidden('Invalid signature')
 
-    # Caminho real do projeto
-    project_dir = '/home/pythondavi/prova'
-
     try:
-
         subprocess.run(
-            [
-                'git',
-                '-C',
-                project_dir,
-                'pull',
-                'origin',
-                'aula12_finalizando_artigo'
-            ],
-            check=True
-        )
-
-        # Recarrega o Django
-        wsgi_file = '/var/www/pythondavi_pythonanywhere_com_wsgi.py'
-
-        subprocess.run(
-            ['touch', wsgi_file],
-            check=True
+            ['/home/pythondavi/deploy_prova.sh'],
+            check=True,
+            timeout=120
         )
 
         return HttpResponse(
@@ -68,10 +46,15 @@ def update_server(request):
             status=200
         )
 
-    except subprocess.CalledProcessError as e:
-
+    except subprocess.TimeoutExpired:
         return HttpResponse(
-            f'Git update failed: {e}',
+            'Deployment timed out',
+            status=500
+        )
+
+    except subprocess.CalledProcessError as e:
+        return HttpResponse(
+            f'Deployment failed: {e}',
             status=500
         )
 
